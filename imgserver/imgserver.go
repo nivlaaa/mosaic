@@ -15,7 +15,9 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/alvinfeng/mosaic/config"
 	"github.com/alvinfeng/mosaic/storage/driver"
+	"github.com/alvinfeng/mosaic/storage/driver/filesystem"
 	"github.com/alvinfeng/mosaic/storage/driver/simple"
 )
 
@@ -24,8 +26,18 @@ type ImgServer struct {
 	store  storagedriver.StorageDriver
 }
 
-func New() (*ImgServer, error) {
-	store, err := simple.New()
+func New(c *config.Config) (*ImgServer, error) {
+	var store storagedriver.StorageDriver
+	var err error
+	switch storageType := c.StorageType; storageType {
+	case "filesystem":
+		store, err = filesystem.New(c.Fs)
+	case "simple":
+		store, err = simple.New()
+	default:
+		return nil, fmt.Errorf("no storage driver specified")
+	}
+
 	s := &ImgServer{
 		store:  store,
 		Router: mux.NewRouter(),
