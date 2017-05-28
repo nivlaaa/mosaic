@@ -114,7 +114,7 @@ func main() {
 	}
 
 	//dates, err := datesBetween("2010-01-01", "2017-01-01")
-	dates, err := datesBetween("2017-01-01", "2017-02-01")
+	dates, err := datesBetween("2008-09-07", "2009-01-01")
 	if err != nil {
 		fmt.Println(err)
 	}

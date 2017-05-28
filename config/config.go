@@ -8,6 +8,10 @@ import (
 )
 
 type Config struct {
+	Addr        string            `yaml:"addr"`
+	Insecure    bool              `yaml:"insecure"`
+	CertPath    string            `yaml:"certpath"`
+	KeyPath     string            `yaml:"keypath"`
 	StorageType string            `yaml:"storagetype"`
 	Fs          filesystem.Config `yaml:"filesystem"`
 }

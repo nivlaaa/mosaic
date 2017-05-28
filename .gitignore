@@ -1,2 +1,3 @@
 buckets/*
+*.tar.gz
 .DS_Store

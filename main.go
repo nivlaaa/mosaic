@@ -26,5 +26,10 @@ func main() {
 		log.Fatal("Error initializing image server: ", err)
 	}
 
-	log.Fatal(http.ListenAndServe(":8081", r.Router))
+	if config.Insecure {
+		log.Println("Warning you are running an insecure image server")
+		log.Fatal(http.ListenAndServe(config.Addr, r.Router))
+	} else {
+		log.Fatal(http.ListenAndServeTLS(config.Addr, config.CertPath, config.KeyPath, r.Router))
+	}
 }

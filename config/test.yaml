@@ -1,1 +1,2 @@
 storagetype: filesystem
+addr: :8080

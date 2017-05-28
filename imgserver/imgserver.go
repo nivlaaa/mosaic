@@ -4,14 +4,14 @@ import (
 	"bytes"
 	"fmt"
 	"image"
-	"image/color"
+	//"image/color"
 	"image/draw"
 	"image/jpeg"
-	//"io/ioutil"
 	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 
@@ -31,8 +31,10 @@ func New(c *config.Config) (*ImgServer, error) {
 	var err error
 	switch storageType := c.StorageType; storageType {
 	case "filesystem":
+		fmt.Println("Using filesystem")
 		store, err = filesystem.New(c.Fs)
 	case "simple":
+		fmt.Println("Using simple")
 		store, err = simple.New()
 	default:
 		return nil, fmt.Errorf("no storage driver specified")
@@ -51,19 +53,20 @@ func New(c *config.Config) (*ImgServer, error) {
 }
 
 func (s *ImgServer) CreateMosaic(w http.ResponseWriter, req *http.Request) {
-	fmt.Println("Creating mosaic")
-	size := 25
-	m, format, err := image.Decode(req.Body)
+	size := ParseTilesize(req)
+	scale := 150 / size // default sub image size is 150x150
+	start := time.Now()
+	fmt.Printf("Creating mosaic with size %v and scale %v\n", size, scale)
+
+	m, _, err := image.Decode(req.Body)
 	if err != nil {
 		fmt.Println(err)
 	}
 	defer req.Body.Close()
 
-	fmt.Println("format:", format)
 	bounds := m.Bounds()
-	fmt.Println(bounds)
 
-	output := image.NewRGBA(bounds)
+	scaledOutput := image.NewRGBA(image.Rect(0, 0, bounds.Max.X*scale, bounds.Max.Y*scale))
 
 	for x := 0; x < bounds.Max.X; x += size {
 		for y := 0; y < bounds.Max.Y; y += size {
@@ -77,11 +80,15 @@ func (s *ImgServer) CreateMosaic(w http.ResponseWriter, req *http.Request) {
 			}
 			rect := image.Rect(x, y, maxX, maxY)
 			r, g, b := GetAverageColor(m, rect)
-			//subimg, err := s.Store.Get(r, g, b)
-			//if err != nil {
-			//	fmt.Println(err)
-			//}
-			draw.Draw(output, rect, &image.Uniform{color.RGBA{uint8(r), uint8(g), uint8(b), 255}}, image.ZP, draw.Src)
+			// fmt.Printf("Fetching sub image for (%v, %v, %v, %v) with rgb: (%v, %v, %v)\n", x, y, maxX, maxY, r, g, b)
+			subimg, err := s.store.Get(uint8(r), uint8(g), uint8(b))
+			if err != nil {
+				fmt.Println(err)
+			}
+			scaledRect := image.Rect(x*scale, y*scale, maxX*scale, maxY*scale)
+			//draw.Draw(output, rect, subimg, image.ZP, draw.Src)
+			draw.Draw(scaledOutput, scaledRect, subimg, subimg.Bounds().Min, draw.Src)
+			//draw.Draw(output, rect, &image.Uniform{color.RGBA{uint8(r), uint8(g), uint8(b), 255}}, image.ZP, draw.Src)
 		}
 	}
 
@@ -89,7 +96,7 @@ func (s *ImgServer) CreateMosaic(w http.ResponseWriter, req *http.Request) {
 
 	var opt jpeg.Options
 	opt.Quality = 80
-	err = jpeg.Encode(buff, output, &opt)
+	err = jpeg.Encode(buff, scaledOutput, &opt)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -99,6 +106,9 @@ func (s *ImgServer) CreateMosaic(w http.ResponseWriter, req *http.Request) {
 	if _, err := w.Write(buff.Bytes()); err != nil {
 		fmt.Println(err)
 	}
+
+	elapsed := time.Since(start)
+	fmt.Printf("Started at %v - elapsed %v\n", start, elapsed)
 }
 
 func (s *ImgServer) FetchImage(w http.ResponseWriter, req *http.Request) {
@@ -186,4 +196,14 @@ func ParseRGB(r *http.Request) (uint8, uint8, uint8, error) {
 		nums[i] = uint8(num)
 	}
 	return nums[0], nums[1], nums[2], nil
+}
+
+func ParseTilesize(r *http.Request) int {
+	defaultSize := 30
+	size := r.Form.Get("tilesize")
+	num, err := strconv.Atoi(size)
+	if err != nil || num <= 0 || num >= 150 {
+		return defaultSize
+	}
+	return num
 }
