@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	//"time"
 
+	"github.com/alvinfeng/mosaic/storage/cache"
 	"github.com/alvinfeng/mosaic/storage/driver"
 )
 
@@ -28,14 +29,7 @@ type Config struct {
 type driver struct {
 	rootDir    string
 	bucketSize int
-	// TODO: move things specifc to cache to separate package
-	cache cache
-}
-
-// As reading a rgb bucket from disk with tens of thousands of entries can be quite slow,
-// save that information in a cache to make looksups faster
-type cache struct {
-	dirs map[string][]string
+	cache      cache.Cache
 }
 
 func New(c Config) (*driver, error) {
@@ -44,19 +38,21 @@ func New(c Config) (*driver, error) {
 		baseDir = c.RootDir
 	}
 
-	dirs := cache{
-		dirs: make(map[string][]string),
-	}
 	d := &driver{
 		rootDir:    baseDir,
 		bucketSize: defaultBucketSize,
-		cache:      dirs,
+		cache:      nil,
 	}
 	return d, nil
 }
 
 func (d *driver) Name() string {
 	return driverName
+}
+
+func (d *driver) SetCache(c cache.Cache) {
+	// TODO: prefill the cache
+	d.cache = c
 }
 
 func (d *driver) Store(data []byte) error {
@@ -96,20 +92,27 @@ func (d *driver) Get(r, g, b uint8) (image.Image, error) {
 		}
 	}
 
-	// get all images in bucket
-	// TODO: move cache logic to separate package
 	// start := time.Now()
-	fileNames, cached := d.cache.dirs[bucketPath]
+	fileNames := []string{}
+	cached := false
+	if d.cache != nil {
+		fileNames, cached = d.cache.Get(bucketPath)
+	}
+
 	if !cached {
 		files, err := ioutil.ReadDir(bucketPath)
 		if err != nil {
 			return img, err
 		}
+
 		fileNames = []string{}
 		for i := 0; i < len(files); i++ {
-			fileNames = append(fileNames, files[i].Name())
+			item := files[i].Name()
+			fileNames = append(fileNames, item)
+			if d.cache != nil {
+				d.cache.Add(item, bucketPath)
+			}
 		}
-		d.cache.dirs[bucketPath] = fileNames
 	}
 	// elapsed := time.Since(start)
 	// fmt.Printf("Bucket (%v, %v, %v) with %v items took %v\n", r, g, b, len(files), elapsed)

@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/alvinfeng/mosaic/storage/cache"
 	"github.com/alvinfeng/mosaic/storage/driver"
 )
 
@@ -18,7 +19,9 @@ const (
 	baseDir    = "./buckets"
 )
 
-type driver struct{}
+type driver struct {
+	buckets cache.Cache
+}
 
 func New() (*driver, error) {
 	return &driver{}, nil
@@ -26,6 +29,10 @@ func New() (*driver, error) {
 
 func (d *driver) Name() string {
 	return driverName
+}
+
+func (d *driver) SetCache(c cache.Cache) {
+	d.buckets = c
 }
 
 func (d *driver) Store(data []byte) error {

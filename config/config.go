@@ -14,6 +14,7 @@ type Config struct {
 	KeyPath     string            `yaml:"keypath"`
 	StorageType string            `yaml:"storagetype"`
 	Fs          filesystem.Config `yaml:"filesystem"`
+	CacheType   string            `yaml:"cachetype"`
 }
 
 // LoadConfig loads a Config from a yaml file

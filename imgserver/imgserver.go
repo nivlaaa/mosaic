@@ -16,6 +16,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/alvinfeng/mosaic/config"
+	"github.com/alvinfeng/mosaic/storage/cache/inmemory"
 	"github.com/alvinfeng/mosaic/storage/driver"
 	"github.com/alvinfeng/mosaic/storage/driver/filesystem"
 	"github.com/alvinfeng/mosaic/storage/driver/simple"
@@ -40,6 +41,14 @@ func New(c *config.Config) (*ImgServer, error) {
 		return nil, fmt.Errorf("no storage driver specified")
 	}
 
+	switch cacheType := c.CacheType; cacheType {
+	case "inmemory":
+		fmt.Println("Using inmemory cache")
+		store.SetCache(inmemory.New())
+	default:
+		fmt.Println("No cache specified")
+	}
+
 	s := &ImgServer{
 		store:  store,
 		Router: mux.NewRouter(),
@@ -53,6 +62,10 @@ func New(c *config.Config) (*ImgServer, error) {
 }
 
 func (s *ImgServer) CreateMosaic(w http.ResponseWriter, req *http.Request) {
+	err := req.ParseForm()
+	if err != nil {
+		fmt.Println(err)
+	}
 	size := ParseTilesize(req)
 	scale := 150 / size // default sub image size is 150x150
 	start := time.Now()
@@ -201,8 +214,9 @@ func ParseRGB(r *http.Request) (uint8, uint8, uint8, error) {
 func ParseTilesize(r *http.Request) int {
 	defaultSize := 30
 	size := r.Form.Get("tilesize")
+	fmt.Println("got size: ", size)
 	num, err := strconv.Atoi(size)
-	if err != nil || num <= 0 || num >= 150 {
+	if err != nil || num <= 0 || num > 150 {
 		return defaultSize
 	}
 	return num

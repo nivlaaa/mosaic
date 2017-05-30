@@ -1,5 +1,6 @@
 storagetype: filesystem
 filesystem:
     rootdir: ./buckets
+cachetype: inmemory
 insecure: true
 addr: :8080

@@ -4,6 +4,8 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"image"
+
+	"github.com/alvinfeng/mosaic/storage/cache"
 )
 
 type StorageDriver interface {
@@ -16,6 +18,9 @@ type StorageDriver interface {
 	// Fetches an image matching a given RGBA value
 	// TODO: enable a user to Get images excluding a list of image
 	Get(r, g, b uint8) (image.Image, error)
+
+	// Sets the cache
+	SetCache(c cache.Cache)
 }
 
 var RawURLEncoding = base64.URLEncoding.WithPadding(base64.NoPadding)
